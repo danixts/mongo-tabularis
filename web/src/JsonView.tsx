@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { usePluginTheme, usePluginToast } from "@tabularis/plugin-api";
-import { getHighlighter, themeNameFor } from "./shiki";
 import { pretty } from "./json";
+import { highlightJson, type JsonPalette } from "./highlight";
 
 interface JsonViewProps {
   value: unknown;
@@ -12,31 +12,21 @@ export function JsonView({ value, maxHeight = 360 }: JsonViewProps) {
   const { isDark, colors } = usePluginTheme();
   const toast = usePluginToast();
   const code = useMemo(() => pretty(value), [value]);
-  const [html, setHtml] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    getHighlighter()
-      .then((highlighter) => {
-        if (!active) return;
-        setHtml(
-          highlighter.codeToHtml(code, {
-            lang: "json",
-            theme: themeNameFor(isDark),
-          }),
-        );
-      })
-      .catch(() => {
-        if (active) setHtml(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [code, isDark]);
 
   const border = colors?.border.subtle ?? "rgba(127,127,127,0.25)";
   const surface = colors?.bg.elevated ?? (isDark ? "#0d1117" : "#ffffff");
   const muted = colors?.text.muted ?? "#8b949e";
+
+  const palette: JsonPalette = {
+    key: colors?.text.accent ?? "#79c0ff",
+    string: colors?.semantic.string ?? "#a5d6ff",
+    number: colors?.semantic.number ?? "#f2cc60",
+    boolean: colors?.semantic.boolean ?? "#ff7b72",
+    null: colors?.semantic.null ?? muted,
+    punctuation: colors?.text.secondary ?? muted,
+  };
+
+  const nodes = useMemo(() => highlightJson(code, palette), [code, palette]);
 
   const copy = () => {
     navigator.clipboard.writeText(code).then(
@@ -52,20 +42,20 @@ export function JsonView({ value, maxHeight = 360 }: JsonViewProps) {
         borderRadius: 8,
         overflow: "hidden",
         background: surface,
-        fontSize: 12,
       }}
     >
       <div
         style={{
-          display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          padding: "4px 8px",
-          borderBottom: `1px solid ${border}`,
           color: muted,
+          display: "flex",
+          justifyContent: "space-between",
+          padding: "6px 10px",
+          borderBottom: `1px solid ${border}`,
+          fontSize: 11,
         }}
       >
-        <span style={{ fontFamily: "monospace" }}>JSON</span>
+        <span style={{ fontFamily: "ui-monospace, monospace", letterSpacing: 0.4 }}>JSON</span>
         <button
           onClick={copy}
           style={{
@@ -75,28 +65,27 @@ export function JsonView({ value, maxHeight = 360 }: JsonViewProps) {
             color: muted,
             cursor: "pointer",
             fontSize: 11,
-            padding: "2px 8px",
+            padding: "2px 10px",
           }}
         >
           Copiar
         </button>
       </div>
-      <div
-        style={{ maxHeight, overflow: "auto", padding: "8px 10px" }}
-        className="tabularis-mongo-json"
+      <pre
+        style={{
+          margin: 0,
+          maxHeight,
+          overflow: "auto",
+          padding: "10px 12px",
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          fontSize: 12.5,
+          lineHeight: 1.55,
+          whiteSpace: "pre",
+          tabSize: 2,
+        }}
       >
-        {html ? (
-          <div dangerouslySetInnerHTML={{ __html: html }} />
-        ) : (
-          <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "monospace" }}>
-            {code}
-          </pre>
-        )}
-      </div>
-      <style>{`
-        .tabularis-mongo-json pre { margin: 0; background: transparent !important; }
-        .tabularis-mongo-json code { font-family: ui-monospace, SFMono-Regular, monospace; }
-      `}</style>
+        <code>{nodes}</code>
+      </pre>
     </div>
   );
 }

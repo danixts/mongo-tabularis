@@ -19,8 +19,7 @@ function rowsToDocuments(columns: string[], rows: unknown[][]) {
   return rows.map((row) => {
     const document: Record<string, unknown> = {};
     columns.forEach((column, index) => {
-      const value = row[index];
-      document[column] = asJson(value) ?? value;
+      document[column] = asJson(row[index]) ?? row[index];
     });
     return document;
   });
@@ -49,6 +48,7 @@ function FilterPanel({ table }: PanelProps) {
   const [fields, setFields] = useState<FieldEntry[]>([]);
   const [documents, setDocuments] = useState<Record<string, unknown>[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [fieldsError, setFieldsError] = useState<string | null>(null);
   const [caret, setCaret] = useState(0);
 
   const border = colors?.border.default ?? "rgba(127,127,127,0.3)";
@@ -74,9 +74,23 @@ function FilterPanel({ table }: PanelProps) {
       ? fields.filter((entry) => entry.path.toLowerCase().includes(needle))
       : fields;
     return matches
-      .slice(0, 40)
+      .slice(0, 50)
       .map((entry) => ({ display: entry.path, hint: entry.type, insert: `"${entry.path}"` }));
   }, [fields, token]);
+
+  const loadFields = async () => {
+    setFieldsError(null);
+    try {
+      const result = await executeQuery(`db.${table}.aggregate([{ "$limit": 1 }])`);
+      const sample = rowsToDocuments(result.columns, result.rows.slice(0, 1))[0] ?? {};
+      const entries = fieldEntries(sample);
+      setFields(
+        entries.length > 0 ? entries : result.columns.map((column) => ({ path: column, type: "" })),
+      );
+    } catch (err) {
+      setFieldsError(err instanceof Error ? err.message : String(err));
+    }
+  };
 
   const run = async (expression: string) => {
     setError(null);
@@ -85,11 +99,6 @@ function FilterPanel({ table }: PanelProps) {
     try {
       const result = await executeQuery(`SELECT * FROM "${table}"${where}`);
       setDocuments(rowsToDocuments(result.columns, result.rows));
-      if (fields.length === 0 && result.columns.length > 0) {
-        const sample = rowsToDocuments(result.columns, result.rows.slice(0, 1))[0] ?? {};
-        const entries = fieldEntries(sample);
-        setFields(entries.length > 0 ? entries : result.columns.map((c) => ({ path: c, type: "" })));
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setDocuments([]);
@@ -97,6 +106,7 @@ function FilterPanel({ table }: PanelProps) {
   };
 
   useEffect(() => {
+    void loadFields();
     void run("{}");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -134,21 +144,36 @@ function FilterPanel({ table }: PanelProps) {
     if (node) setCaret(node.selectionStart);
   };
 
-  const label = (children: string) => (
-    <div style={{ color: muted, fontSize: 11, fontWeight: 600, letterSpacing: 0.4, textTransform: "uppercase" }}>
-      {children}
-    </div>
-  );
+  const labelStyle: React.CSSProperties = {
+    color: muted,
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  };
+
+  const usingOperators = token.value.startsWith("$");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, color: text, width: 620, maxWidth: "100%" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+        color: text,
+        padding: 20,
+        width: 620,
+        maxWidth: "100%",
+        boxSizing: "border-box",
+      }}
+    >
       <div style={{ fontSize: 13, color: muted, lineHeight: 1.5 }}>
         Filtro sobre <strong style={{ color: text }}>{table}</strong>. Sintaxis MongoDB, por ejemplo{" "}
         <code style={{ color: typeColor }}>{`{ "body.total": { "$gt": 0 } }`}</code>.
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {label("Consulta")}
+        <div style={labelStyle}>Consulta</div>
         <textarea
           ref={textareaRef}
           value={filter}
@@ -182,24 +207,48 @@ function FilterPanel({ table }: PanelProps) {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {label(token.value.startsWith("$") ? "Operadores" : "Campos")}
+        <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between" }}>
+          <div style={labelStyle}>
+            {usingOperators ? "Operadores" : `Campos (${fields.length})`}
+          </div>
+          {!usingOperators && (
+            <button
+              onClick={() => void loadFields()}
+              style={{
+                background: "transparent",
+                border: `1px solid ${subtle}`,
+                borderRadius: 6,
+                color: muted,
+                cursor: "pointer",
+                fontSize: 11,
+                padding: "2px 8px",
+              }}
+            >
+              Recargar
+            </button>
+          )}
+        </div>
         <div
           style={{
             background: panelBg,
             border: `1px solid ${subtle}`,
             borderRadius: 8,
-            maxHeight: 150,
+            maxHeight: 160,
             overflow: "auto",
             padding: 4,
           }}
         >
           {suggestions.length === 0 ? (
-            <div style={{ color: muted, fontSize: 12, padding: "8px 10px" }}>Sin coincidencias</div>
+            <div style={{ color: muted, fontSize: 12, padding: "8px 10px" }}>
+              {fieldsError ? `Error cargando campos: ${fieldsError}` : "Sin coincidencias"}
+            </div>
           ) : (
             suggestions.map((suggestion) => (
               <button
                 key={suggestion.display}
                 onClick={() => insert(suggestion)}
+                onMouseEnter={(e) => (e.currentTarget.style.background = hover)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 style={{
                   alignItems: "center",
                   background: "transparent",
@@ -216,11 +265,9 @@ function FilterPanel({ table }: PanelProps) {
                   textAlign: "left",
                   width: "100%",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = hover)}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 <span>{suggestion.display}</span>
-                <span style={{ color: muted, fontSize: 11 }}>{suggestion.hint}</span>
+                <span style={{ color: typeColor, fontSize: 11 }}>{suggestion.hint}</span>
               </button>
             ))
           )}
@@ -266,7 +313,7 @@ function FilterPanel({ table }: PanelProps) {
 
       {documents.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {label("Resultado")}
+          <div style={labelStyle}>Resultado</div>
           <JsonView value={documents} maxHeight={400} />
         </div>
       )}

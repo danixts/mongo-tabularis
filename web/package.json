@@ -6,8 +6,7 @@
     "build": "BUILD_ENTRY=json-viewer vite build && BUILD_ENTRY=filter-bar vite build && BUILD_ENTRY=cell-json vite build"
   },
   "dependencies": {
-    "@tabularis/plugin-api": "^0.1.0",
-    "shiki": "^1.29.2"
+    "@tabularis/plugin-api": "^0.1.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
