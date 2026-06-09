@@ -18,8 +18,9 @@ echo "Building $binary..."
 (cd "$plugin_src" && go build -trimpath -ldflags "-s -w" -o "$binary" ./cmd/tabularis-mongodb-plugin)
 
 mkdir -p "$dest_dir"
-cp "$plugin_src/$binary" "$dest_dir/$binary"
-chmod +x "$dest_dir/$binary"
+cp "$plugin_src/$binary" "$dest_dir/$binary.new"
+chmod +x "$dest_dir/$binary.new"
+mv -f "$dest_dir/$binary.new" "$dest_dir/$binary"
 cp "$plugin_src/manifest.json" "$dest_dir/manifest.json"
 
 echo "Installed to: $dest_dir"
