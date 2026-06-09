@@ -107,9 +107,7 @@ func writeScalar(builder *strings.Builder, value any) {
 	case float32:
 		builder.WriteString(strconv.FormatFloat(float64(v), 'g', -1, 32))
 	case bson.ObjectID:
-		builder.WriteString(`ObjectId("`)
-		builder.WriteString(v.Hex())
-		builder.WriteString(`")`)
+		builder.WriteString(strconv.Quote(v.Hex()))
 	case bson.DateTime:
 		builder.WriteString(strconv.Quote(time.UnixMilli(int64(v)).UTC().Format(time.RFC3339)))
 	case bson.Decimal128:
