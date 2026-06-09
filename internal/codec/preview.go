@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -19,13 +20,26 @@ func Cell(value any) any {
 	}
 }
 
+const maxPreviewBytes = 4096
+
 func Preview(value any) string {
 	var builder strings.Builder
 	writePreview(&builder, value)
-	return builder.String()
+	rendered := builder.String()
+	if len(rendered) <= maxPreviewBytes {
+		return rendered
+	}
+	cut := maxPreviewBytes
+	for cut > 0 && !utf8.RuneStart(rendered[cut]) {
+		cut--
+	}
+	return rendered[:cut] + "…"
 }
 
 func writePreview(builder *strings.Builder, value any) {
+	if builder.Len() > maxPreviewBytes {
+		return
+	}
 	switch v := value.(type) {
 	case bson.D:
 		builder.WriteByte('{')

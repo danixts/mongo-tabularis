@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -14,7 +15,10 @@ import (
 	"github.com/danixts/mongo-tabularis/internal/shell"
 )
 
-const sampleSize = 100
+const (
+	sampleSize  = 100
+	warmTimeout = 60 * time.Second
+)
 
 type Column struct {
 	Name            string `json:"name"`
@@ -86,10 +90,26 @@ func ListCollections(ctx context.Context, client *mongo.Client, database string)
 	for _, name := range names {
 		collections = append(collections, Collection{Name: name})
 	}
+	warmColumns(client, database, names)
 	return collections, nil
 }
 
+func warmColumns(client *mongo.Client, database string, collections []string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), warmTimeout)
+		defer cancel()
+		runBounded(len(collections), schemaConcurrency, func(index int) {
+			_, _ = InferColumns(ctx, client, database, collections[index])
+		})
+	}()
+}
+
 func InferColumns(ctx context.Context, client *mongo.Client, database, collection string) ([]Column, error) {
+	key := columnsKey(client, database, collection)
+	if columns, ok := columnsCache.load(key); ok {
+		return columns, nil
+	}
+
 	cursor, err := client.Database(database).Collection(collection).Find(ctx, bson.D{}, options.Find().SetLimit(sampleSize))
 	if err != nil {
 		return nil, err
@@ -143,6 +163,8 @@ func InferColumns(ctx context.Context, client *mongo.Client, database, collectio
 			IsNullable: occurrences[name] < totalDocuments,
 		})
 	}
+
+	columnsCache.store(key, columns)
 	return columns, nil
 }
 
@@ -336,6 +358,7 @@ func InsertRecord(ctx context.Context, client *mongo.Client, database, collectio
 	if _, err := client.Database(database).Collection(collection).InsertOne(ctx, document); err != nil {
 		return 0, err
 	}
+	columnsCache.invalidate(columnsKey(client, database, collection))
 	return 1, nil
 }
 
@@ -425,14 +448,10 @@ func buildResult(documents []bson.D, limit *uint32, page uint32, hasMore bool, t
 
 func decodeDocuments(ctx context.Context, cursor *mongo.Cursor) ([]bson.D, error) {
 	var documents []bson.D
-	for cursor.Next(ctx) {
-		var document bson.D
-		if err := cursor.Decode(&document); err != nil {
-			return nil, err
-		}
-		documents = append(documents, document)
+	if err := cursor.All(ctx, &documents); err != nil {
+		return nil, err
 	}
-	return documents, cursor.Err()
+	return documents, nil
 }
 
 func collectColumns(documents []bson.D) []string {

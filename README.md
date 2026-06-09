@@ -35,6 +35,23 @@ internal/codec/                 BSON <-> JSON conversion and filter parsing
 
 Method routing uses a handler registry map (open for extension, closed for modification) rather than a dispatch switch.
 
+## Performance
+
+- Object and array cells are returned as compact inline JSON previews (field
+  order preserved), so nested documents are readable in the grid without
+  opening each cell.
+- Schema inference is cached per collection with a short TTL and pre-warmed in
+  the background when collections are listed, so query autocompletion has field
+  names available with no perceptible latency. The cache is invalidated on
+  insert.
+- Schema snapshot and batch-column inference run in parallel with bounded
+  concurrency.
+- Aggregations paginate via `$skip`/`$limit` pushed into the pipeline instead of
+  materialising full result sets.
+- The JSON-RPC server processes requests concurrently (bounded), so the
+  parallel metadata calls Tabularis issues do not serialise. Responses are
+  matched by id and may return out of order.
+
 ## Build
 
 ```bash

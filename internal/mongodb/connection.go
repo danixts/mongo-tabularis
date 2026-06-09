@@ -62,43 +62,58 @@ func (p *ConnParams) UnmarshalJSON(data []byte) error {
 type Pool struct {
 	mu      sync.Mutex
 	clients map[string]*mongo.Client
+	locks   map[string]*sync.Mutex
 }
 
 func NewPool() *Pool {
-	return &Pool{clients: make(map[string]*mongo.Client)}
+	return &Pool{
+		clients: make(map[string]*mongo.Client),
+		locks:   make(map[string]*sync.Mutex),
+	}
 }
 
 func (pool *Pool) Acquire(ctx context.Context, params ConnParams) (*mongo.Client, string, error) {
 	uri, database := buildURI(params)
 
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
-	if client, ok := pool.clients[uri]; ok {
+	if client, ok := pool.lookup(uri); ok {
 		return client, database, nil
 	}
 
-	clientOptions := options.Client().
-		ApplyURI(uri).
-		SetServerSelectionTimeout(dialTimeout).
-		SetConnectTimeout(dialTimeout).
-		SetMaxPoolSize(maxPoolSize)
-	applyTLS(clientOptions, params.SSLMode)
+	lock := pool.lockFor(uri)
+	lock.Lock()
+	defer lock.Unlock()
 
-	client, err := mongo.Connect(clientOptions)
+	if client, ok := pool.lookup(uri); ok {
+		return client, database, nil
+	}
+
+	client, err := connect(ctx, uri, params.SSLMode)
 	if err != nil {
-		return nil, database, fmt.Errorf("failed to create MongoDB client: %w", err)
+		return nil, database, err
 	}
 
-	pingCtx, cancel := context.WithTimeout(ctx, dialTimeout)
-	defer cancel()
-	if err := client.Ping(pingCtx, readpref.Primary()); err != nil {
-		_ = client.Disconnect(context.Background())
-		return nil, database, fmt.Errorf("failed to connect to MongoDB: %w", err)
-	}
-
+	pool.mu.Lock()
 	pool.clients[uri] = client
+	pool.mu.Unlock()
 	return client, database, nil
+}
+
+func (pool *Pool) lookup(uri string) (*mongo.Client, bool) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+	client, ok := pool.clients[uri]
+	return client, ok
+}
+
+func (pool *Pool) lockFor(uri string) *sync.Mutex {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+	lock, ok := pool.locks[uri]
+	if !ok {
+		lock = &sync.Mutex{}
+		pool.locks[uri] = lock
+	}
+	return lock
 }
 
 func (pool *Pool) Close() {
@@ -107,6 +122,28 @@ func (pool *Pool) Close() {
 	for _, client := range pool.clients {
 		_ = client.Disconnect(context.Background())
 	}
+}
+
+func connect(ctx context.Context, uri, sslMode string) (*mongo.Client, error) {
+	clientOptions := options.Client().
+		ApplyURI(uri).
+		SetServerSelectionTimeout(dialTimeout).
+		SetConnectTimeout(dialTimeout).
+		SetMaxPoolSize(maxPoolSize)
+	applyTLS(clientOptions, sslMode)
+
+	client, err := mongo.Connect(clientOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create MongoDB client: %w", err)
+	}
+
+	pingCtx, cancel := context.WithTimeout(ctx, dialTimeout)
+	defer cancel()
+	if err := client.Ping(pingCtx, readpref.Primary()); err != nil {
+		_ = client.Disconnect(context.Background())
+		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
+	}
+	return client, nil
 }
 
 func buildURI(params ConnParams) (uri string, database string) {
