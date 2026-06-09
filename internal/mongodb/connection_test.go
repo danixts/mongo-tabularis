@@ -19,16 +19,28 @@ func TestBuildURI(t *testing.T) {
 			wantDatabase: "admin",
 		},
 		{
-			name:         "credentials are percent encoded",
+			name:         "credentials are percent encoded with default auth source",
 			params:       ConnParams{Host: "db.internal", Port: intPtr(27017), Database: "shop", Username: "ad min", Password: "p@ss:w/rd"},
-			wantURI:      "mongodb://ad+min:p%40ss%3Aw%2Frd@db.internal:27017/shop",
+			wantURI:      "mongodb://ad+min:p%40ss%3Aw%2Frd@db.internal:27017/shop?authSource=admin",
 			wantDatabase: "shop",
 		},
 		{
 			name:         "srv omits port",
 			params:       ConnParams{Host: "cluster0.mongodb.net", Port: intPtr(27017), Database: "prod", Username: "user", Password: "secret", SRV: boolPtr(true)},
-			wantURI:      "mongodb+srv://user:secret@cluster0.mongodb.net/prod",
+			wantURI:      "mongodb+srv://user:secret@cluster0.mongodb.net/prod?authSource=admin",
 			wantDatabase: "prod",
+		},
+		{
+			name:         "explicit auth source overrides default",
+			params:       ConnParams{Host: "db.internal", Port: intPtr(27017), Database: "shop", Username: "user", Password: "secret", AuthSource: "shop"},
+			wantURI:      "mongodb://user:secret@db.internal:27017/shop?authSource=shop",
+			wantDatabase: "shop",
+		},
+		{
+			name:         "no credentials means no auth source",
+			params:       ConnParams{Host: "db.internal", Port: intPtr(27017), Database: "shop"},
+			wantURI:      "mongodb://db.internal:27017/shop",
+			wantDatabase: "shop",
 		},
 		{
 			name:         "replica set seed list with options",

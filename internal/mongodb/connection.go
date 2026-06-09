@@ -204,10 +204,22 @@ func formatHosts(host string, port *int, useSRV bool) string {
 	return strings.Join(hosts, ",")
 }
 
+const defaultAuthSource = "admin"
+
+func resolveAuthSource(params ConnParams) string {
+	if params.AuthSource != "" {
+		return params.AuthSource
+	}
+	if params.Username != "" {
+		return defaultAuthSource
+	}
+	return ""
+}
+
 func buildQuery(params ConnParams) string {
 	values := url.Values{}
-	if params.AuthSource != "" {
-		values.Set("authSource", params.AuthSource)
+	if authSource := resolveAuthSource(params); authSource != "" {
+		values.Set("authSource", authSource)
 	}
 	if params.AuthMechanism != "" {
 		values.Set("authMechanism", params.AuthMechanism)
