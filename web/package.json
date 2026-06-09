@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "BUILD_ENTRY=json-viewer vite build && BUILD_ENTRY=filter-bar vite build"
+    "build": "BUILD_ENTRY=json-viewer vite build && BUILD_ENTRY=filter-bar vite build && BUILD_ENTRY=cell-json vite build"
   },
   "dependencies": {
     "@tabularis/plugin-api": "^0.1.0",

@@ -24,6 +24,12 @@
       "module": "ui/filter-bar.js",
       "order": 50,
       "driver": "mongodb"
+    },
+    {
+      "slot": "data-grid.context-menu.items",
+      "module": "ui/cell-json.js",
+      "order": 50,
+      "driver": "mongodb"
     }
   ],
   "capabilities": {

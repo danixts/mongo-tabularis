@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 const entries: Record<string, string> = {
   "json-viewer": "src/json-viewer.tsx",
   "filter-bar": "src/filter-bar.tsx",
+  "cell-json": "src/cell-json.tsx",
 };
 
 const target = process.env.BUILD_ENTRY ?? "json-viewer";
