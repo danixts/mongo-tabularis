@@ -15,37 +15,41 @@ func Parse(input string) (Query, bool) {
 	if !ok {
 		return Query{}, false
 	}
-	dot := strings.IndexByte(rest, '.')
-	if dot < 0 {
-		return Query{}, false
-	}
-	collection := strings.TrimSpace(rest[:dot])
-	afterCollection := rest[dot+1:]
-
-	open := strings.IndexByte(afterCollection, '(')
+	open := strings.IndexByte(rest, '(')
 	if open < 0 {
 		return Query{}, false
 	}
-	operation := strings.TrimSpace(afterCollection[:open])
+	head := rest[:open]
+	collection, operation := head, "find"
+	if dot := strings.IndexByte(head, '.'); dot >= 0 {
+		collection = head[:dot]
+		operation = head[dot+1:]
+	}
 
 	return Query{
-		Collection: collection,
-		Operation:  operation,
-		Args:       splitTopLevelArgs(balancedArgs(afterCollection[open+1:])),
+		Collection: strings.TrimSpace(collection),
+		Operation:  strings.TrimSpace(operation),
+		Args:       splitTopLevelArgs(balancedArgs(rest[open+1:])),
 	}, true
 }
 
-func ParseSQLFrom(input string) (string, bool) {
+func ParseSQL(input string) (collection, where string, ok bool) {
 	upper := strings.ToUpper(strings.TrimSpace(input))
 	from := strings.Index(upper, " FROM ")
 	if from < 0 {
-		return "", false
+		return "", "", false
 	}
-	fields := strings.Fields(strings.TrimSpace(input[from+6:]))
+	remainder := strings.TrimSpace(input[from+6:])
+	fields := strings.Fields(remainder)
 	if len(fields) == 0 || fields[0] == "" {
-		return "", false
+		return "", "", false
 	}
-	return strings.Trim(fields[0], "`\"[]"), true
+	collection = strings.Trim(fields[0], "`\"[]")
+
+	if at := strings.Index(strings.ToUpper(remainder), " WHERE "); at >= 0 {
+		where = strings.TrimSpace(remainder[at+7:])
+	}
+	return collection, where, true
 }
 
 func (q Query) Arg(index int) string {

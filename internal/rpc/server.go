@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -18,29 +19,55 @@ const (
 	requestTimeout        = 30 * time.Second
 	connectionTimeout     = 10 * time.Second
 	maxConcurrentRequests = 16
+	debugLogEnv           = "TABULARIS_MONGO_DEBUG_LOG"
 )
 
 type Server struct {
-	pool     *mongodb.Pool
-	handlers map[string]handler
-	reader   *bufio.Reader
-	writer   *responseWriter
-	logger   io.Writer
-	rootCtx  context.Context
-	slots    chan struct{}
-	inflight sync.WaitGroup
+	pool       *mongodb.Pool
+	handlers   map[string]handler
+	reader     *bufio.Reader
+	writer     *responseWriter
+	logger     io.Writer
+	rootCtx    context.Context
+	slots      chan struct{}
+	inflight   sync.WaitGroup
+	requestLog *os.File
+	requestMu  sync.Mutex
 }
 
 func NewServer(pool *mongodb.Pool, in io.Reader, out io.Writer, logger io.Writer) *Server {
 	return &Server{
-		pool:     pool,
-		handlers: newRegistry(),
-		reader:   bufio.NewReaderSize(in, readBufferSize),
-		writer:   newResponseWriter(out),
-		logger:   logger,
-		rootCtx:  context.Background(),
-		slots:    make(chan struct{}, maxConcurrentRequests),
+		pool:       pool,
+		handlers:   newRegistry(),
+		reader:     bufio.NewReaderSize(in, readBufferSize),
+		writer:     newResponseWriter(out),
+		logger:     logger,
+		rootCtx:    context.Background(),
+		slots:      make(chan struct{}, maxConcurrentRequests),
+		requestLog: openRequestLog(),
 	}
+}
+
+func openRequestLog() *os.File {
+	path := os.Getenv(debugLogEnv)
+	if path == "" {
+		return nil
+	}
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return nil
+	}
+	return file
+}
+
+func (s *Server) logRequest(line []byte) {
+	if s.requestLog == nil {
+		return
+	}
+	s.requestMu.Lock()
+	defer s.requestMu.Unlock()
+	s.requestLog.Write(line)
+	s.requestLog.Write([]byte{'\n'})
 }
 
 func (s *Server) Run() error {
@@ -48,7 +75,9 @@ func (s *Server) Run() error {
 	for {
 		line, err := s.reader.ReadBytes('\n')
 		if trimmed := bytes.TrimSpace(line); len(trimmed) > 0 {
-			s.dispatch(append([]byte(nil), trimmed...))
+			copied := append([]byte(nil), trimmed...)
+			s.logRequest(copied)
+			s.dispatch(copied)
 		}
 		if err != nil {
 			if errors.Is(err, io.EOF) {

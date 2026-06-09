@@ -212,8 +212,12 @@ func runQuery(ctx context.Context, client *mongo.Client, database, query string,
 	if parsed, ok := shell.Parse(query); ok {
 		return dispatchShellQuery(ctx, client, database, parsed, limit, page)
 	}
-	if collection, ok := shell.ParseSQLFrom(query); ok {
-		return executeFind(ctx, client, database, collection, bson.D{}, nil, limit, page)
+	if collection, where, ok := shell.ParseSQL(query); ok {
+		filter, err := codec.ParseWhere(where)
+		if err != nil {
+			return QueryResult{}, err
+		}
+		return executeFind(ctx, client, database, collection, filter, nil, limit, page)
 	}
 	return QueryResult{}, fmt.Errorf("invalid query format. Use MongoDB shell syntax:\n  db.collection.find({})\n  db.collection.aggregate([...])")
 }

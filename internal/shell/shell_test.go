@@ -56,20 +56,30 @@ func TestParse(t *testing.T) {
 	}
 }
 
-func TestParseSQLFrom(t *testing.T) {
+func TestParseSQL(t *testing.T) {
 	cases := []struct {
 		input          string
 		wantCollection string
+		wantWhere      string
 		wantOK         bool
 	}{
-		{"SELECT * FROM users", "users", true},
-		{"select * from `orders`", "orders", true},
-		{"db.users.find({})", "", false},
+		{"SELECT * FROM users", "users", "", true},
+		{"select * from `orders`", "orders", "", true},
+		{`SELECT * FROM "events" WHERE total = 96`, "events", "total = 96", true},
+		{`SELECT * FROM "events" WHERE { body.total : 96 }`, "events", "{ body.total : 96 }", true},
+		{"db.users.find({})", "", "", false},
 	}
 	for _, tc := range cases {
-		got, ok := ParseSQLFrom(tc.input)
-		if ok != tc.wantOK || got != tc.wantCollection {
-			t.Errorf("ParseSQLFrom(%q) = %q,%v want %q,%v", tc.input, got, ok, tc.wantCollection, tc.wantOK)
+		collection, where, ok := ParseSQL(tc.input)
+		if ok != tc.wantOK || collection != tc.wantCollection || where != tc.wantWhere {
+			t.Errorf("ParseSQL(%q) = %q,%q,%v want %q,%q,%v", tc.input, collection, where, ok, tc.wantCollection, tc.wantWhere, tc.wantOK)
 		}
+	}
+}
+
+func TestParseCollectionShorthand(t *testing.T) {
+	got, ok := Parse("db.events()")
+	if !ok || got.Collection != "events" || got.Operation != "find" {
+		t.Errorf("Parse(db.events()) = %#v,%v", got, ok)
 	}
 }
