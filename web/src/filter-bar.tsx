@@ -6,7 +6,14 @@ import {
   usePluginTheme,
 } from "@tabularis/plugin-api";
 import { JsonView } from "./JsonView";
-import { asJson, fieldPaths } from "./json";
+import { asJson, fieldEntries, type FieldEntry } from "./json";
+import { operators } from "./operators";
+
+interface Suggestion {
+  display: string;
+  hint: string;
+  insert: string;
+}
 
 function rowsToDocuments(columns: string[], rows: unknown[][]) {
   return rows.map((row) => {
@@ -39,7 +46,7 @@ function FilterPanel({ table }: PanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [filter, setFilter] = useState("{ }");
-  const [fields, setFields] = useState<string[]>([]);
+  const [fields, setFields] = useState<FieldEntry[]>([]);
   const [documents, setDocuments] = useState<Record<string, unknown>[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,14 +60,22 @@ function FilterPanel({ table }: PanelProps) {
   const text = colors?.text.primary ?? (isDark ? "#e6edf3" : "#1f2328");
   const muted = colors?.text.muted ?? "#8b949e";
   const accent = colors?.accent.primary ?? "#3b82f6";
+  const hover = colors?.surface.hover ?? "rgba(127,127,127,0.15)";
 
   const token = useMemo(() => tokenAt(filter, caret), [filter, caret]);
-  const suggestions = useMemo(() => {
+  const suggestions = useMemo<Suggestion[]>(() => {
     const needle = token.value.toLowerCase();
     if (needle.length === 0) return [];
+    if (needle.startsWith("$")) {
+      return operators
+        .filter((entry) => entry.op.toLowerCase().includes(needle))
+        .slice(0, 8)
+        .map((entry) => ({ display: entry.op, hint: entry.desc, insert: `${entry.op}: ` }));
+    }
     return fields
-      .filter((path) => path.toLowerCase().includes(needle) && path !== token.value)
-      .slice(0, 8);
+      .filter((entry) => entry.path.toLowerCase().includes(needle) && entry.path !== token.value)
+      .slice(0, 8)
+      .map((entry) => ({ display: entry.path, hint: entry.type, insert: `"${entry.path}"` }));
   }, [fields, token]);
 
   useEffect(() => {
@@ -76,7 +91,7 @@ function FilterPanel({ table }: PanelProps) {
       setDocuments(rowsToDocuments(result.columns, result.rows));
       if (fields.length === 0 && result.columns.length > 0) {
         const sample = rowsToDocuments(result.columns, result.rows.slice(0, 1))[0] ?? {};
-        setFields(fieldPaths(sample));
+        setFields(fieldEntries(sample));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -89,12 +104,11 @@ function FilterPanel({ table }: PanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const applySuggestion = (path: string) => {
+  const applySuggestion = (suggestion: Suggestion) => {
     const before = filter.slice(0, token.start);
     const after = filter.slice(caret);
-    const insertion = `"${path}"`;
-    const next = before + insertion + after;
-    const nextCaret = token.start + insertion.length;
+    const next = before + suggestion.insert + after;
+    const nextCaret = token.start + suggestion.insert.length;
     setFilter(next);
     setSuggestOpen(false);
     requestAnimationFrame(() => {
@@ -147,8 +161,9 @@ function FilterPanel({ table }: PanelProps) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, color: text, minWidth: 540 }}>
       <div style={{ fontSize: 12, color: muted }}>
-        Filtro MongoDB sobre <strong>{table}</strong> — sintaxis Compass. Escribe un campo para
-        autocompletar; <kbd>↑↓</kbd> navega, <kbd>Tab</kbd> inserta, <kbd>⌘/Ctrl+Enter</kbd> aplica.
+        Filtro MongoDB sobre <strong>{table}</strong> — sintaxis Compass. Escribe un campo o{" "}
+        <code>$</code> para autocompletar; <kbd>↑↓</kbd> navega, <kbd>Tab</kbd> inserta,{" "}
+        <kbd>⌘/Ctrl+Enter</kbd> aplica.
       </div>
 
       <div style={{ position: "relative" }}>
@@ -195,33 +210,37 @@ function FilterPanel({ table }: PanelProps) {
               border: `1px solid ${border}`,
               borderRadius: 8,
               boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
-              maxHeight: 220,
+              maxHeight: 240,
               overflow: "auto",
             }}
           >
-            {suggestions.map((path, index) => (
-              <li key={path}>
+            {suggestions.map((suggestion, index) => (
+              <li key={suggestion.display}>
                 <button
                   onMouseDown={(event) => {
                     event.preventDefault();
-                    applySuggestion(path);
+                    applySuggestion(suggestion);
                   }}
                   onMouseEnter={() => setActiveIndex(index)}
                   style={{
-                    background: index === activeIndex ? colors?.surface.hover ?? "rgba(127,127,127,0.15)" : "transparent",
+                    alignItems: "center",
+                    background: index === activeIndex ? hover : "transparent",
                     border: "none",
                     borderRadius: 6,
                     color: text,
                     cursor: "pointer",
-                    display: "block",
+                    display: "flex",
                     fontFamily: "monospace",
                     fontSize: 12,
+                    justifyContent: "space-between",
+                    gap: 12,
                     padding: "5px 8px",
                     textAlign: "left",
                     width: "100%",
                   }}
                 >
-                  {path}
+                  <span>{suggestion.display}</span>
+                  <span style={{ color: muted, fontSize: 11 }}>{suggestion.hint}</span>
                 </button>
               </li>
             ))}
