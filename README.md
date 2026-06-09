@@ -10,9 +10,11 @@ It connects Tabularis to any MongoDB deployment — standalone, replica set, sha
 - Replica sets, `authSource`, `authMechanism`, TLS/SSL and arbitrary URI options.
 - Collection browsing and schema inference by sampling documents.
 - Index inspection (name, columns, uniqueness, primary).
-- Query execution with MongoDB shell syntax: `find`, `findOne`, `aggregate`, `count`, `countDocuments`, `estimatedDocumentCount`.
+- Read queries with MongoDB shell syntax: `find`, `findOne`, `aggregate`, `count`, `countDocuments`, `estimatedDocumentCount`.
+- Write queries from the editor: `insertOne`, `insertMany`, `updateOne`, `updateMany`, `replaceOne`, `deleteOne`, `deleteMany`, `createIndex`, `drop`.
 - Extended JSON filters (e.g. `{"_id": {"$oid": "..."}}`).
 - Inline document CRUD from the Tabularis data grid.
+- Pagination via either `page_size` or `limit`, with `execution_time_ms` reported per query.
 - DDL-equivalent script generation (`createCollection`, `createIndex`, `$rename`).
 
 ## Connection
@@ -78,6 +80,13 @@ Restart Tabularis afterwards.
 
 ```bash
 go test ./...
+```
+
+Integration tests run against a real server when `MONGODB_URI` is set, and are
+skipped otherwise:
+
+```bash
+MONGODB_URI="mongodb://localhost:27017" go test ./...
 ```
 
 Manual JSON-RPC check:

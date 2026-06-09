@@ -31,7 +31,9 @@ type Params struct {
 	TableName  string             `json:"table_name"`
 	Query      string             `json:"query"`
 	Limit      *uint32            `json:"limit"`
+	PageSize   *uint32            `json:"page_size"`
 	Page       uint32             `json:"page"`
+	Settings   map[string]any     `json:"settings"`
 	Data       map[string]any     `json:"data"`
 	PKColumn   string             `json:"pk_col"`
 	PKValue    any                `json:"pk_val"`

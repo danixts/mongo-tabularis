@@ -46,6 +46,10 @@ func newRegistry() map[string]handler {
 		"test_connection": connected(func(s session) (any, error) {
 			return mongodb.TestConnection(s.ctx, s.client, s.database)
 		}),
+		"ping": connected(func(s session) (any, error) {
+			return nil, mongodb.Ping(s.ctx, s.client, s.database)
+		}),
+		"initialize": offline(func(session) (any, error) { return nil, nil }),
 		"get_databases": connected(func(s session) (any, error) {
 			return mongodb.ListDatabases(s.ctx, s.client, s.database), nil
 		}),
@@ -59,7 +63,7 @@ func newRegistry() map[string]handler {
 			return mongodb.ListIndexes(s.ctx, s.client, s.database, s.params.Table)
 		}),
 		"execute_query": connected(func(s session) (any, error) {
-			return mongodb.ExecuteQuery(s.ctx, s.client, s.database, s.params.Query, s.params.Limit, s.params.Page)
+			return mongodb.ExecuteQuery(s.ctx, s.client, s.database, s.params.Query, effectiveLimit(s.params), s.params.Page)
 		}),
 		"insert_record": connected(func(s session) (any, error) {
 			return mongodb.InsertRecord(s.ctx, s.client, s.database, s.params.Table, s.params.Data)
@@ -102,6 +106,13 @@ func newRegistry() map[string]handler {
 		"get_routine_definition": unsupported("MongoDB does not support stored routines"),
 		"drop_foreign_key":       unsupported("MongoDB does not support foreign key constraints"),
 	}
+}
+
+func effectiveLimit(params Params) *uint32 {
+	if params.PageSize != nil {
+		return params.PageSize
+	}
+	return params.Limit
 }
 
 func primaryKeyColumn(params Params) string {
