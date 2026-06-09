@@ -292,6 +292,17 @@ func executeFind(ctx context.Context, client *mongo.Client, database, collection
 }
 
 func executeAggregate(ctx context.Context, client *mongo.Client, database, collection string, pipeline bson.A, limit *uint32, page uint32) (any, error) {
+	if page == 0 {
+		page = 1
+	}
+	if limit != nil {
+		skip := int64((page - 1) * *limit)
+		pipeline = append(append(bson.A{}, pipeline...),
+			bson.D{{Key: "$skip", Value: skip}},
+			bson.D{{Key: "$limit", Value: int64(*limit) + 1}},
+		)
+	}
+
 	cursor, err := client.Database(database).Collection(collection).Aggregate(ctx, pipeline)
 	if err != nil {
 		return nil, err
@@ -303,18 +314,11 @@ func executeAggregate(ctx context.Context, client *mongo.Client, database, colle
 		return nil, err
 	}
 
-	if page == 0 {
-		page = 1
+	hasMore := limit != nil && len(documents) > int(*limit)
+	if hasMore {
+		documents = documents[:*limit]
 	}
-	start, end, hasMore := 0, len(documents), false
-	var total any
-	if limit != nil {
-		total = len(documents)
-		start = min(int((page-1)**limit), len(documents))
-		end = min(start+int(*limit), len(documents))
-		hasMore = end < len(documents)
-	}
-	return buildResult(documents[start:end], limit, page, hasMore, total), nil
+	return buildResult(documents, limit, page, hasMore, nil), nil
 }
 
 func InsertRecord(ctx context.Context, client *mongo.Client, database, collection string, data map[string]any) (int64, error) {
@@ -363,16 +367,14 @@ func SchemaSnapshot(ctx context.Context, client *mongo.Client, database string) 
 	if err != nil {
 		return nil, err
 	}
-	snapshots := make([]CollectionSnapshot, 0, len(names))
-	for _, name := range names {
-		columns, err := InferColumns(ctx, client, database, name)
-		if err != nil {
-			columns = []Column{}
+	snapshots := make([]CollectionSnapshot, len(names))
+	runBounded(len(names), schemaConcurrency, func(index int) {
+		snapshots[index] = CollectionSnapshot{
+			Name:        names[index],
+			Columns:     inferColumnsOrEmpty(ctx, client, database, names[index]),
+			ForeignKeys: []any{},
 		}
-		snapshots = append(snapshots, CollectionSnapshot{
-			Name: name, Columns: columns, ForeignKeys: []any{},
-		})
-	}
+	})
 	return snapshots, nil
 }
 
@@ -381,15 +383,23 @@ func AllColumnsBatch(ctx context.Context, client *mongo.Client, database string)
 	if err != nil {
 		return nil, err
 	}
-	result := map[string]any{}
-	for _, name := range names {
-		columns, err := InferColumns(ctx, client, database, name)
-		if err != nil {
-			columns = []Column{}
-		}
-		result[name] = columns
+	columnsByIndex := make([][]Column, len(names))
+	runBounded(len(names), schemaConcurrency, func(index int) {
+		columnsByIndex[index] = inferColumnsOrEmpty(ctx, client, database, names[index])
+	})
+	result := make(map[string]any, len(names))
+	for index, name := range names {
+		result[name] = columnsByIndex[index]
 	}
 	return result, nil
+}
+
+func inferColumnsOrEmpty(ctx context.Context, client *mongo.Client, database, collection string) []Column {
+	columns, err := InferColumns(ctx, client, database, collection)
+	if err != nil {
+		return []Column{}
+	}
+	return columns
 }
 
 func countResult(total int64) QueryResult {
@@ -461,7 +471,7 @@ func documentsToRows(documents []bson.D, columns []string) [][]any {
 		}
 		row := make([]any, len(columns))
 		for i, column := range columns {
-			row[i] = codec.ToJSON(byKey[column])
+			row[i] = codec.Cell(byKey[column])
 		}
 		rows = append(rows, row)
 	}

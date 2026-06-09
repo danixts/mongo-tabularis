@@ -41,6 +41,27 @@ func TestParseIDObjectID(t *testing.T) {
 	}
 }
 
+func TestPreviewPreservesFieldOrder(t *testing.T) {
+	value := bson.D{
+		{Key: "discount", Value: int32(0)},
+		{Key: "subtotal", Value: int32(80)},
+		{Key: "tax", Value: int32(16)},
+	}
+	want := `{"discount": 0, "subtotal": 80, "tax": 16}`
+	if got := Preview(value); got != want {
+		t.Errorf("Preview = %q, want %q", got, want)
+	}
+}
+
+func TestCellLeavesScalarsTyped(t *testing.T) {
+	if got := Cell(int32(42)); got != int32(42) {
+		t.Errorf("Cell(int32) = %v (%T), want typed 42", got, got)
+	}
+	if got := Cell(bson.A{int32(1), "x"}); got != `[1, "x"]` {
+		t.Errorf("Cell(array) = %v, want array preview", got)
+	}
+}
+
 func TestParseFilterExtendedJSON(t *testing.T) {
 	filter, err := ParseFilter(`{"_id": {"$oid": "507f1f77bcf86cd799439011"}}`)
 	if err != nil {

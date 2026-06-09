@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	readBufferSize    = 1 << 20
-	requestTimeout    = 30 * time.Second
-	connectionTimeout = 10 * time.Second
+	readBufferSize        = 1 << 20
+	requestTimeout        = 30 * time.Second
+	connectionTimeout     = 10 * time.Second
+	maxConcurrentRequests = 16
 )
 
 type Server struct {
@@ -26,6 +27,8 @@ type Server struct {
 	writer   *responseWriter
 	logger   io.Writer
 	rootCtx  context.Context
+	slots    chan struct{}
+	inflight sync.WaitGroup
 }
 
 func NewServer(pool *mongodb.Pool, in io.Reader, out io.Writer, logger io.Writer) *Server {
@@ -36,14 +39,16 @@ func NewServer(pool *mongodb.Pool, in io.Reader, out io.Writer, logger io.Writer
 		writer:   newResponseWriter(out),
 		logger:   logger,
 		rootCtx:  context.Background(),
+		slots:    make(chan struct{}, maxConcurrentRequests),
 	}
 }
 
 func (s *Server) Run() error {
+	defer s.inflight.Wait()
 	for {
 		line, err := s.reader.ReadBytes('\n')
 		if trimmed := bytes.TrimSpace(line); len(trimmed) > 0 {
-			s.handle(trimmed)
+			s.dispatch(append([]byte(nil), trimmed...))
 		}
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -52,6 +57,16 @@ func (s *Server) Run() error {
 			return err
 		}
 	}
+}
+
+func (s *Server) dispatch(line []byte) {
+	s.slots <- struct{}{}
+	s.inflight.Add(1)
+	go func() {
+		defer s.inflight.Done()
+		defer func() { <-s.slots }()
+		s.handle(line)
+	}()
 }
 
 func (s *Server) handle(line []byte) {

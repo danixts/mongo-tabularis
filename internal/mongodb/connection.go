@@ -16,7 +16,10 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 )
 
-const dialTimeout = 8 * time.Second
+const (
+	dialTimeout = 8 * time.Second
+	maxPoolSize = 50
+)
 
 type ConnParams struct {
 	Driver   string `json:"driver"`
@@ -78,7 +81,8 @@ func (pool *Pool) Acquire(ctx context.Context, params ConnParams) (*mongo.Client
 	clientOptions := options.Client().
 		ApplyURI(uri).
 		SetServerSelectionTimeout(dialTimeout).
-		SetConnectTimeout(dialTimeout)
+		SetConnectTimeout(dialTimeout).
+		SetMaxPoolSize(maxPoolSize)
 	applyTLS(clientOptions, params.SSLMode)
 
 	client, err := mongo.Connect(clientOptions)
