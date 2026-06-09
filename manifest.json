@@ -2,10 +2,30 @@
   "$schema": "https://raw.githubusercontent.com/debba/tabularis/main/plugins/manifest.schema.json",
   "id": "mongodb",
   "name": "MongoDB",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MongoDB NoSQL database driver (Go). Supports standalone, replica set and mongodb+srv connections with optional TLS/SSL and authentication.",
   "default_port": 27017,
   "executable": "tabularis-mongodb-plugin",
+  "ui_extensions": [
+    {
+      "slot": "row-edit-modal.field.after",
+      "module": "ui/json-viewer.js",
+      "order": 50,
+      "driver": "mongodb"
+    },
+    {
+      "slot": "row-editor-sidebar.field.after",
+      "module": "ui/json-viewer.js",
+      "order": 50,
+      "driver": "mongodb"
+    },
+    {
+      "slot": "data-grid.toolbar.actions",
+      "module": "ui/filter-bar.js",
+      "order": 50,
+      "driver": "mongodb"
+    }
+  ],
   "capabilities": {
     "schemas": false,
     "views": false,
@@ -18,16 +38,71 @@
     "connection_string_example": "mongodb+srv://user:password@cluster0.mongodb.net/mydb?retryWrites=true&w=majority"
   },
   "data_types": [
-    { "name": "String", "category": "string", "requires_length": false, "requires_precision": false },
-    { "name": "Int32", "category": "numeric", "requires_length": false, "requires_precision": false },
-    { "name": "Int64", "category": "numeric", "requires_length": false, "requires_precision": false },
-    { "name": "Double", "category": "numeric", "requires_length": false, "requires_precision": false },
-    { "name": "Decimal128", "category": "numeric", "requires_length": false, "requires_precision": false },
-    { "name": "Boolean", "category": "other", "requires_length": false, "requires_precision": false },
-    { "name": "Date", "category": "date", "requires_length": false, "requires_precision": false },
-    { "name": "ObjectId", "category": "other", "requires_length": false, "requires_precision": false },
-    { "name": "Array", "category": "other", "requires_length": false, "requires_precision": false },
-    { "name": "Object", "category": "other", "requires_length": false, "requires_precision": false },
-    { "name": "Binary", "category": "binary", "requires_length": false, "requires_precision": false }
+    {
+      "name": "String",
+      "category": "string",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "Int32",
+      "category": "numeric",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "Int64",
+      "category": "numeric",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "Double",
+      "category": "numeric",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "Decimal128",
+      "category": "numeric",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "Boolean",
+      "category": "other",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "Date",
+      "category": "date",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "ObjectId",
+      "category": "other",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "Array",
+      "category": "other",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "Object",
+      "category": "other",
+      "requires_length": false,
+      "requires_precision": false
+    },
+    {
+      "name": "Binary",
+      "category": "binary",
+      "requires_length": false,
+      "requires_precision": false
+    }
   ]
 }

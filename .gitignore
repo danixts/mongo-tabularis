@@ -11,6 +11,10 @@
 *.prof
 vendor/
 
+# Frontend (built bundles in ui/ are committed)
+web/node_modules/
+web/dist/
+
 # Editor / OS
 .idea/
 .vscode/

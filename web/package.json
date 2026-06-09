@@ -1,0 +1,19 @@
+{
+  "name": "tabularis-mongodb-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "BUILD_ENTRY=json-viewer vite build && BUILD_ENTRY=filter-bar vite build"
+  },
+  "dependencies": {
+    "@tabularis/plugin-api": "^0.1.0",
+    "shiki": "^1.29.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@vitejs/plugin-react": "^4.3.4",
+    "react": "^18.3.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
