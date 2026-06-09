@@ -162,8 +162,7 @@ function FilterPanel({ table }: PanelProps) {
         gap: 16,
         color: text,
         padding: 20,
-        width: 620,
-        maxWidth: "100%",
+        width: "100%",
         boxSizing: "border-box",
       }}
     >
