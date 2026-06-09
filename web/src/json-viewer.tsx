@@ -2,7 +2,7 @@ import type { SlotComponentProps } from "@tabularis/plugin-api";
 import { JsonView } from "./JsonView";
 import { asJson } from "./json";
 
-export default function JsonFieldViewer({ context }: SlotComponentProps) {
+function JsonFieldViewer({ context }: SlotComponentProps) {
   const column = context.columnName;
   if (!column || !context.rowData) {
     return null;
@@ -17,3 +17,7 @@ export default function JsonFieldViewer({ context }: SlotComponentProps) {
     </div>
   );
 }
+
+(JsonFieldViewer as unknown as { default: unknown }).default = JsonFieldViewer;
+
+export default JsonFieldViewer;

@@ -323,4 +323,8 @@ const Slot = defineSlot("data-grid.toolbar.actions", ({ context }) => {
   );
 });
 
-export default Slot.component;
+const FilterToolbarButton = Slot.component;
+
+(FilterToolbarButton as unknown as { default: unknown }).default = FilterToolbarButton;
+
+export default FilterToolbarButton;
