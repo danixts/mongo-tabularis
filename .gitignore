@@ -1,0 +1,18 @@
+# Build artifacts
+/tabularis-mongodb-plugin
+/tabularis-mongodb-plugin.exe
+/staging/
+/dist/
+*.zip
+
+# Go
+*.test
+*.out
+*.prof
+vendor/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/debba/tabularis/main/plugins/manifest.schema.json",
+  "id": "mongodb",
+  "name": "MongoDB",
+  "version": "0.1.0",
+  "description": "MongoDB NoSQL database driver (Go). Supports standalone, replica set and mongodb+srv connections with optional TLS/SSL and authentication.",
+  "default_port": 27017,
+  "executable": "tabularis-mongodb-plugin",
+  "capabilities": {
+    "schemas": false,
+    "views": false,
+    "routines": false,
+    "file_based": false,
+    "identifier_quote": "`",
+    "alter_primary_key": false,
+    "supports_ssl": true,
+    "connection_string": true,
+    "connection_string_example": "mongodb+srv://user:password@cluster0.mongodb.net/mydb?retryWrites=true&w=majority"
+  },
+  "data_types": [
+    { "name": "String", "category": "string", "requires_length": false, "requires_precision": false },
+    { "name": "Int32", "category": "numeric", "requires_length": false, "requires_precision": false },
+    { "name": "Int64", "category": "numeric", "requires_length": false, "requires_precision": false },
+    { "name": "Double", "category": "numeric", "requires_length": false, "requires_precision": false },
+    { "name": "Decimal128", "category": "numeric", "requires_length": false, "requires_precision": false },
+    { "name": "Boolean", "category": "other", "requires_length": false, "requires_precision": false },
+    { "name": "Date", "category": "date", "requires_length": false, "requires_precision": false },
+    { "name": "ObjectId", "category": "other", "requires_length": false, "requires_precision": false },
+    { "name": "Array", "category": "other", "requires_length": false, "requires_precision": false },
+    { "name": "Object", "category": "other", "requires_length": false, "requires_precision": false },
+    { "name": "Binary", "category": "binary", "requires_length": false, "requires_precision": false }
+  ]
+}
