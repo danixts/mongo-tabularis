@@ -212,12 +212,13 @@ func runQuery(ctx context.Context, client *mongo.Client, database, query string,
 	if parsed, ok := shell.Parse(query); ok {
 		return dispatchShellQuery(ctx, client, database, parsed, limit, page)
 	}
-	if collection, where, ok := shell.ParseSQL(query); ok {
-		filter, err := codec.ParseWhere(where)
+	if selection, ok := shell.ParseSQL(query); ok {
+		filter, err := codec.ParseWhere(selection.Where)
 		if err != nil {
 			return QueryResult{}, err
 		}
-		return executeFind(ctx, client, database, collection, filter, nil, limit, page)
+		sort := codec.ParseOrderBy(selection.OrderBy)
+		return executeFind(ctx, client, database, selection.Collection, filter, nil, sort, limit, page)
 	}
 	return QueryResult{}, fmt.Errorf("invalid query format. Use MongoDB shell syntax:\n  db.collection.find({})\n  db.collection.aggregate([...])")
 }
@@ -270,7 +271,7 @@ func operationFind(ctx context.Context, client *mongo.Client, database string, q
 			return QueryResult{}, err
 		}
 	}
-	return executeFind(ctx, client, database, query.Collection, filter, projection, limit, page)
+	return executeFind(ctx, client, database, query.Collection, filter, projection, nil, limit, page)
 }
 
 func operationFindOne(ctx context.Context, client *mongo.Client, database string, query shell.Query, _ *uint32, _ uint32) (QueryResult, error) {
@@ -279,7 +280,7 @@ func operationFindOne(ctx context.Context, client *mongo.Client, database string
 		return QueryResult{}, err
 	}
 	one := uint32(1)
-	return executeFind(ctx, client, database, query.Collection, filter, nil, &one, 1)
+	return executeFind(ctx, client, database, query.Collection, filter, nil, nil, &one, 1)
 }
 
 func operationAggregate(ctx context.Context, client *mongo.Client, database string, query shell.Query, limit *uint32, page uint32) (QueryResult, error) {
@@ -439,7 +440,7 @@ func operationDrop(ctx context.Context, client *mongo.Client, database string, q
 	return writeSummary([]string{"dropped"}, []any{query.Collection}, 0), nil
 }
 
-func executeFind(ctx context.Context, client *mongo.Client, database, collection string, filter, projection bson.D, limit *uint32, page uint32) (QueryResult, error) {
+func executeFind(ctx context.Context, client *mongo.Client, database, collection string, filter, projection bson.D, sort bson.D, limit *uint32, page uint32) (QueryResult, error) {
 	if page == 0 {
 		page = 1
 	}
@@ -450,6 +451,9 @@ func executeFind(ctx context.Context, client *mongo.Client, database, collection
 	}
 	if projection != nil {
 		findOptions.SetProjection(projection)
+	}
+	if len(sort) > 0 {
+		findOptions.SetSort(sort)
 	}
 
 	cursor, err := client.Database(database).Collection(collection).Find(ctx, filter, findOptions)

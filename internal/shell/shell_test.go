@@ -58,21 +58,23 @@ func TestParse(t *testing.T) {
 
 func TestParseSQL(t *testing.T) {
 	cases := []struct {
-		input          string
-		wantCollection string
-		wantWhere      string
-		wantOK         bool
+		input  string
+		want   SQLSelect
+		wantOK bool
 	}{
-		{"SELECT * FROM users", "users", "", true},
-		{"select * from `orders`", "orders", "", true},
-		{`SELECT * FROM "events" WHERE total = 96`, "events", "total = 96", true},
-		{`SELECT * FROM "events" WHERE { body.total : 96 }`, "events", "{ body.total : 96 }", true},
-		{"db.users.find({})", "", "", false},
+		{"SELECT * FROM users", SQLSelect{Collection: "users"}, true},
+		{"select * from `orders`", SQLSelect{Collection: "orders"}, true},
+		{`SELECT * FROM "events" WHERE total = 96`, SQLSelect{Collection: "events", Where: "total = 96"}, true},
+		{`SELECT * FROM "events" WHERE { body.total : 96 }`, SQLSelect{Collection: "events", Where: "{ body.total : 96 }"}, true},
+		{`SELECT * FROM "events" ORDER BY createdAt DESC`, SQLSelect{Collection: "events", OrderBy: "createdAt DESC"}, true},
+		{`SELECT * FROM "events" WHERE total = 96 ORDER BY createdAt DESC`, SQLSelect{Collection: "events", Where: "total = 96", OrderBy: "createdAt DESC"}, true},
+		{`SELECT * FROM "events" WHERE a = 1 ORDER BY b ASC LIMIT 50`, SQLSelect{Collection: "events", Where: "a = 1", OrderBy: "b ASC"}, true},
+		{"db.users.find({})", SQLSelect{}, false},
 	}
 	for _, tc := range cases {
-		collection, where, ok := ParseSQL(tc.input)
-		if ok != tc.wantOK || collection != tc.wantCollection || where != tc.wantWhere {
-			t.Errorf("ParseSQL(%q) = %q,%q,%v want %q,%q,%v", tc.input, collection, where, ok, tc.wantCollection, tc.wantWhere, tc.wantOK)
+		got, ok := ParseSQL(tc.input)
+		if ok != tc.wantOK || got != tc.want {
+			t.Errorf("ParseSQL(%q) = %#v,%v want %#v,%v", tc.input, got, ok, tc.want, tc.wantOK)
 		}
 	}
 }

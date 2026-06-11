@@ -36,6 +36,30 @@ func ParseWhere(where string) (bson.D, error) {
 	return sqlConditionsToFilter(where)
 }
 
+func ParseOrderBy(text string) bson.D {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	sort := bson.D{}
+	for _, part := range strings.Split(text, ",") {
+		tokens := strings.Fields(strings.TrimSpace(part))
+		if len(tokens) == 0 {
+			continue
+		}
+		column := cleanIdentifier(tokens[0])
+		if column == "" {
+			continue
+		}
+		direction := int32(1)
+		if len(tokens) > 1 && strings.EqualFold(tokens[1], "DESC") {
+			direction = -1
+		}
+		sort = append(sort, bson.E{Key: column, Value: direction})
+	}
+	return sort
+}
+
 func parseLooseFilter(text string) (bson.D, error) {
 	if document, err := ParseFilter(text); err == nil {
 		return document, nil

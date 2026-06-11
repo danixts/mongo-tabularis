@@ -6,6 +6,31 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
+func TestParseOrderBy(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"createdAt DESC", `{"createdAt":-1}`},
+		{"name", `{"name":1}`},
+		{"a DESC, b ASC", `{"a":-1,"b":1}`},
+		{"", `null`},
+	}
+	for _, tc := range cases {
+		got := ParseOrderBy(tc.input)
+		if got == nil {
+			if tc.want != "null" {
+				t.Errorf("ParseOrderBy(%q) = nil, want %s", tc.input, tc.want)
+			}
+			continue
+		}
+		encoded, _ := bson.MarshalExtJSON(got, false, false)
+		if string(encoded) != tc.want {
+			t.Errorf("ParseOrderBy(%q) = %s, want %s", tc.input, encoded, tc.want)
+		}
+	}
+}
+
 func TestParseWhere(t *testing.T) {
 	cases := []struct {
 		name  string

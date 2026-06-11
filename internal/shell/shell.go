@@ -33,23 +33,50 @@ func Parse(input string) (Query, bool) {
 	}, true
 }
 
-func ParseSQL(input string) (collection, where string, ok bool) {
-	upper := strings.ToUpper(strings.TrimSpace(input))
+type SQLSelect struct {
+	Collection string
+	Where      string
+	OrderBy    string
+}
+
+func ParseSQL(input string) (SQLSelect, bool) {
+	statement := strings.TrimRight(strings.TrimSpace(input), ";")
+	upper := strings.ToUpper(statement)
+
 	from := strings.Index(upper, " FROM ")
 	if from < 0 {
-		return "", "", false
+		return SQLSelect{}, false
 	}
-	remainder := strings.TrimSpace(input[from+6:])
-	fields := strings.Fields(remainder)
-	if len(fields) == 0 || fields[0] == "" {
-		return "", "", false
-	}
-	collection = strings.Trim(fields[0], "`\"[]")
+	rest := statement[from+6:]
+	restUpper := upper[from+6:]
 
-	if at := strings.Index(strings.ToUpper(remainder), " WHERE "); at >= 0 {
-		where = strings.TrimSpace(remainder[at+7:])
+	fields := strings.Fields(strings.TrimSpace(rest))
+	if len(fields) == 0 || fields[0] == "" {
+		return SQLSelect{}, false
 	}
-	return collection, where, true
+	result := SQLSelect{Collection: strings.Trim(fields[0], "`\"[]")}
+
+	wherePos := strings.Index(restUpper, " WHERE ")
+	orderPos := strings.Index(restUpper, " ORDER BY ")
+	limitPos := strings.Index(restUpper, " LIMIT ")
+
+	if orderPos >= 0 {
+		end := len(rest)
+		if limitPos > orderPos {
+			end = limitPos
+		}
+		result.OrderBy = strings.TrimSpace(rest[orderPos+10 : end])
+	}
+	if wherePos >= 0 {
+		end := len(rest)
+		if orderPos > wherePos {
+			end = orderPos
+		} else if limitPos > wherePos {
+			end = limitPos
+		}
+		result.Where = strings.TrimSpace(rest[wherePos+7 : end])
+	}
+	return result, true
 }
 
 func (q Query) Arg(index int) string {
