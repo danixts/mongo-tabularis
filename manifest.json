@@ -6,32 +6,6 @@
   "description": "MongoDB NoSQL database driver (Go). Supports standalone, replica set and mongodb+srv connections with optional TLS/SSL and authentication.",
   "default_port": 27017,
   "executable": "tabularis-mongodb-plugin",
-  "ui_extensions": [
-    {
-      "slot": "row-edit-modal.field.after",
-      "module": "ui/json-viewer.js",
-      "order": 50,
-      "driver": "mongodb"
-    },
-    {
-      "slot": "row-editor-sidebar.field.after",
-      "module": "ui/json-viewer.js",
-      "order": 50,
-      "driver": "mongodb"
-    },
-    {
-      "slot": "data-grid.toolbar.actions",
-      "module": "ui/filter-bar.js",
-      "order": 50,
-      "driver": "mongodb"
-    },
-    {
-      "slot": "data-grid.context-menu.items",
-      "module": "ui/cell-json.js",
-      "order": 50,
-      "driver": "mongodb"
-    }
-  ],
   "capabilities": {
     "schemas": false,
     "views": false,
