@@ -17,22 +17,12 @@ dest_dir="$plugins_dir/$plugin_id"
 echo "Building $binary..."
 (cd "$plugin_src" && go build -trimpath -ldflags "-s -w" -o "$binary" ./cmd/tabularis-mongodb-plugin)
 
-if [[ -d "$plugin_src/web" ]] && command -v npm >/dev/null 2>&1; then
-  echo "Building UI extensions..."
-  (cd "$plugin_src/web" && { [[ -d node_modules ]] || npm install; } && npm run build)
-fi
-
 mkdir -p "$dest_dir"
 cp "$plugin_src/$binary" "$dest_dir/$binary.new"
 chmod +x "$dest_dir/$binary.new"
 mv -f "$dest_dir/$binary.new" "$dest_dir/$binary"
 cp "$plugin_src/manifest.json" "$dest_dir/manifest.json"
-
 rm -rf "$dest_dir/ui"
-if [[ -d "$plugin_src/ui" ]]; then
-  cp -r "$plugin_src/ui" "$dest_dir/ui"
-  echo "Copied UI extensions"
-fi
 
 echo "Installed to: $dest_dir"
 echo "Restart Tabularis to load the plugin."
